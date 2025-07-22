@@ -1,1 +1,308 @@
+<!DOCTYPE html>
+<html lang="he">
+<head>
+<meta charset="UTF-8" />
+<title>מכשירים לפי בתי חולים</title>
+<style>
+  body {
+    font-family: Arial, sans-serif;
+    direction: rtl;
+    text-align: center;
+    background-color: #121212; /* רקע שחור כהה */
+    color: #e0e0e0; /* טקסט בהיר לקריאות */
+  }
+  .device {
+    display: inline-block;
+    background: #1e1e1e; /* כהה יותר לריבוע */
+    border-radius: 16px;
+    box-shadow: 0 4px 12px rgba(255,255,255,0.1);
+    margin: 20px;
+    padding: 20px;
+    width: 260px;
+    transition: 0.3s;
+    position: relative;
+    cursor: pointer;
+    color: #f0f0f0;
+  }
+  .device:hover {
+    transform: scale(1.03);
+    box-shadow: 0 6px 20px rgba(255,255,255,0.2);
+  }
+  .device img {
+    width: 100%;
+    border-radius: 12px;
+    pointer-events: none;
+    filter: brightness(0.9);
+  }
+  .device h3 {
+    margin: 10px 0 5px;
+    color: #ffd700; /* צהוב זהב */
+  }
+  .device p {
+    color: #ddd;
+    font-weight: bold;
+  }
+  .popup {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #222;
+    padding: 30px;
+    box-shadow: 0 0 20px rgba(255,255,255,0.3);
+    border-radius: 16px;
+    display: none;
+    z-index: 999;
+    max-width: 90%;
+    text-align: right;
+    direction: rtl;
+    max-height: 80vh;
+    overflow-y: auto;
+    color: #eee;
+  }
+  .popup h2 {
+    margin-bottom: 20px;
+    color: #ffd700;
+  }
+  .popup button {
+    margin-top: 10px;
+    padding: 10px 20px;
+    border: none;
+    background-color: #ffd700;
+    color: #222;
+    border-radius: 8px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: background-color 0.3s ease;
+  }
+  .popup button:hover {
+    background-color: #ffc107;
+  }
+  .add-device {
+    background-color: #28a745;
+    color: white;
+    padding: 10px 20px;
+    margin: 20px;
+    border: none;
+    border-radius: 10px;
+    cursor: pointer;
+    font-weight: bold;
+    box-shadow: 0 3px 10px rgba(40,167,69,0.6);
+  }
+  .add-device:hover {
+    background-color: #218838;
+  }
+  .form-field {
+    margin-bottom: 10px;
+  }
+  .form-field input, .form-field textarea {
+    width: 100%;
+    padding: 8px;
+    border-radius: 8px;
+    border: 1px solid #444;
+    background-color: #333;
+    color: #eee;
+    box-sizing: border-box;
+  }
+  .form-field input::placeholder,
+  .form-field textarea::placeholder {
+    color: #bbb;
+  }
+  .delete-button {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    background-color: #dc3545;
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 20px;
+    text-align: center;
+    z-index: 10;
+  }
+  .edit-button {
+    position: absolute;
+    top: 10px;
+    right: 10px;
+    background-color: #ffc107;
+    color: black;
+    border: none;
+    border-radius: 50%;
+    width: 24px;
+    height: 24px;
+    cursor: pointer;
+    font-size: 14px;
+    line-height: 20px;
+    text-align: center;
+    z-index: 10;
+  }
+</style>
+</head>
+<body>
+
+<h1>רשימת מכשירים לפי בית חולים</h1>
+
+<button class="add-device" onclick="showAddDeviceForm()">➕ הוסף מכשיר</button>
+
+<div id="deviceContainer"></div>
+
+<div id="popup" class="popup">
+  <h2>פרטי מכשיר</h2>
+  <div id="details"></div>
+  <button onclick="closePopup()">סגור</button>
+</div>
+
+<div id="addDevicePopup" class="popup">
+  <h2 id="formTitle">הוספת מכשיר חדש</h2>
+  <div class="form-field"><input id="hospitalInput" placeholder="שם בית החולים" /></div>
+  <div class="form-field"><input id="serialInput" placeholder="מספר סידורי" /></div>
+  <div class="form-field"><input id="userInput" placeholder="יוזר" /></div>
+  <div class="form-field"><input id="passInput" placeholder="סיסמה" /></div>
+  <div class="form-field"><input id="tmUserInput" placeholder="יוזר TM" /></div>
+  <div class="form-field"><input id="tmPassInput" placeholder="סיסמה TM" /></div>
+  <div class="form-field"><textarea id="notesInput" placeholder="הערות"></textarea></div>
+  <button onclick="saveDevice()">שמור</button>
+  <button onclick="closeAddDeviceForm()">ביטול</button>
+</div>
+
+<script>
+  let deviceData = {
+    'הדסה עין כרם': {
+      'מספר סידורי': '12345678',
+      'יוזר': 'admin',
+      'סיסמה': '1234',
+      'יוזר TM': 'tmuser',
+      'סיסמה TM': 'tmpass',
+      'הערות': 'בוצע טיפול תקופתי בתאריך 01/07/2025'
+    }
+  };
+  let editingHospital = null;
+
+  function updateDeviceList() {
+    const container = document.getElementById('deviceContainer');
+    container.innerHTML = '';
+
+    for (const hospital in deviceData) {
+      const device = document.createElement('div');
+      device.className = 'device';
+
+      const delBtn = document.createElement('button');
+      delBtn.className = 'delete-button';
+      delBtn.textContent = '×';
+      delBtn.onclick = (e) => {
+        e.stopPropagation();
+        if(confirm(`האם אתה בטוח שברצונך למחוק את המכשיר של ${hospital}?`)) {
+          delete deviceData[hospital];
+          updateDeviceList();
+        }
+      };
+
+      const editBtn = document.createElement('button');
+      editBtn.className = 'edit-button';
+      editBtn.textContent = '✎';
+      editBtn.onclick = (e) => {
+        e.stopPropagation();
+        showAddDeviceForm(hospital);
+      };
+
+      const img = document.createElement('img');
+      img.src = '372a8837-7812-4ac6-8057-8d5437615ebd.png';
+      img.alt = 'TEG 6s';
+
+      const h3 = document.createElement('h3');
+      h3.textContent = 'TEG 6s';
+
+      const p = document.createElement('p');
+      p.textContent = `🏥 ${hospital}`;
+
+      device.appendChild(delBtn);
+      device.appendChild(editBtn);
+      device.appendChild(img);
+      device.appendChild(h3);
+      device.appendChild(p);
+
+      device.onclick = () => showDetails(hospital);
+
+      container.appendChild(device);
+    }
+  }
+
+  function showDetails(hospital) {
+    const data = deviceData[hospital];
+    const detailsDiv = document.getElementById('details');
+    detailsDiv.innerHTML = `<h3>${hospital}</h3>`;
+    for (const key in data) {
+      detailsDiv.innerHTML += `<p><strong>${key}:</strong> ${data[key]}</p>`;
+    }
+    document.getElementById('popup').style.display = 'block';
+  }
+
+  function closePopup() {
+    document.getElementById('popup').style.display = 'none';
+  }
+
+  function showAddDeviceForm(hospital = null) {
+    editingHospital = hospital;
+    document.getElementById('formTitle').textContent = hospital ? 'עריכת מכשיר' : 'הוספת מכשיר חדש';
+    if(hospital) {
+      const data = deviceData[hospital];
+      document.getElementById('hospitalInput').value = hospital;
+      document.getElementById('serialInput').value = data['מספר סידורי'];
+      document.getElementById('userInput').value = data['יוזר'];
+      document.getElementById('passInput').value = data['סיסמה'];
+      document.getElementById('tmUserInput').value = data['יוזר TM'];
+      document.getElementById('tmPassInput').value = data['סיסמה TM'];
+      document.getElementById('notesInput').value = data['הערות'];
+    } else {
+      ['hospitalInput','serialInput','userInput','passInput','tmUserInput','tmPassInput','notesInput'].forEach(id => {
+        document.getElementById(id).value = '';
+      });
+    }
+    document.getElementById('addDevicePopup').style.display = 'block';
+  }
+
+  function closeAddDeviceForm() {
+    document.getElementById('addDevicePopup').style.display = 'none';
+    editingHospital = null;
+  }
+
+  function saveDevice() {
+    const hospital = document.getElementById('hospitalInput').value.trim();
+    if (!hospital) {
+      alert('יש למלא שם בית חולים');
+      return;
+    }
+    const serial = document.getElementById('serialInput').value;
+    const user = document.getElementById('userInput').value;
+    const pass = document.getElementById('passInput').value;
+    const tmUser = document.getElementById('tmUserInput').value;
+    const tmPass = document.getElementById('tmPassInput').value;
+    const notes = document.getElementById('notesInput').value;
+
+    if(editingHospital && editingHospital !== hospital){
+      delete deviceData[editingHospital];
+    }
+
+    deviceData[hospital] = {
+      'מספר סידורי': serial,
+      'יוזר': user,
+      'סיסמה': pass,
+      'יוזר TM': tmUser,
+      'סיסמה TM': tmPass,
+      'הערות': notes
+    };
+
+    updateDeviceList();
+    closeAddDeviceForm();
+  }
+
+  updateDeviceList();
+</script>
+
+</body>
+</html>
 
